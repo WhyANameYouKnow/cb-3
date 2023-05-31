@@ -84,12 +84,26 @@
 
      ///statement_list ::= ( block )*
      fn statement_list(&mut self) -> ParseResult {
-             loop {
-                if let Err(_) = self.block() {
-                     break;
-                }
+         let statement: &[C1Token] = &[C1Token::KwIf, C1Token::KwReturn, C1Token::KwPrintf, C1Token::Identifier];
+         loop {
+             //if Token is a normal statement or maybe the special case: function_call
+             if self.any_match_current(statement) || (self.current_matches(&C1Token::Identifier) && self.next_matches(&C1Token::LeftParenthesis)) {
+                 self.block()?;
              }
-         Ok(())
+             //or if token is a statement list and hence starts with "{" and then the same as first condition
+             else if self.current_matches(&C1Token::LeftBrace) {
+                 self.check_and_eat_token(&C1Token::LeftBrace, "\"{\" ist missing")?;
+                 self.statement_list()?;
+                 self.check_and_eat_token(&C1Token::RightBrace, "\"}\" ist missing")?;
+             }
+             else if self.current_matches(&C1Token::RightBrace){
+                 return Ok(());
+             }
+             else {
+                 return Err(self.error_message_current("Invalid statement list"));
+             }
+             //
+         }
      }
 
      ///statement ::= if_statement
@@ -98,14 +112,23 @@
      ///             | stat_assignment ";"
      ///             | function_call ";"
      fn statement(&mut self) -> ParseResult {
+         let last_token: Option<C1Token>  = self.current_token().clone();
          match self.current_token() {
              Some(C1Token::KwIf) => self.if_statement()?,
              Some(C1Token::KwReturn) => self.return_statement()?,
              Some(C1Token::KwPrintf) => self.printf()?,
-             Some(C1Token::Identifier) => self.stat_assignment()?,
-             _ => self.function_call()?,
+             Some(C1Token::Identifier) => {
+                 match self.peek_token() {
+                     Some(C1Token::Assign) => self.stat_assignment()?,
+                     Some(C1Token::LeftParenthesis) => self.function_call()?,
+                     _ => Err(self.error_message_current("Invalid statement after identifier, it should be an assignment or a function call!"))?,
+                 }
+             }
+             _ => Err(self.error_message_current("Invalid statement"))?,
          }
-         self.check_and_eat_token(&C1Token::Semicolon, "Expected ';' after statement")?;
+         if last_token != Some(C1Token::KwIf) {
+             self.check_and_eat_token(&C1Token::Semicolon, "Expected ';' after statement")?;
+         }
          Ok(())
      }
 
@@ -116,19 +139,27 @@
              C1Token::KwIf => {
                  self.eat();
                  self.assignment_in_parenthesis()?;
+                 self.block()?;
                  Ok(())
              }
              _ => Err(self.error_message_current("Invalid if statement")),
          }
      }
 
-     ///return_statement     ::= <KW_RETURN> ( assignment )?
+     ///return_statement ::= <KW_RETURN> ( assignment )?
      fn return_statement(&mut self) -> ParseResult {
          let token = self.current_token().ok_or_else(|| self.error_message_current("Expected a return statement"))?;
          match token {
              C1Token::KwReturn => {
                  self.eat();
-                 self.assignment()?;
+                 if self.current_matches(&C1Token::Identifier)
+                 || self.current_matches(&C1Token::ConstInt)
+                 || self.current_matches(&C1Token::ConstFloat)
+                 || self.current_matches(&C1Token::ConstBoolean)
+                 || self.current_matches(&C1Token::LeftParenthesis)
+                 || self.current_matches(&C1Token::Minus) {
+                     self.assignment()?;
+                 }
                  Ok(())
              }
              _ => Err(self.error_message_current("Invalid return statement")),
@@ -164,7 +195,7 @@
 
      ///assignment ::= ( ( <ID> "=" assignment ) | expr )
      fn assignment(&mut self) -> ParseResult {
-         if self.current_matches(&C1Token::Identifier) {
+         if self.current_matches(&C1Token::Identifier) && self.next_matches(&C1Token::Assign) {
             self.identifier()?;
             let token = self.current_token().ok_or_else(|| self.error_message_current("Expected a \"=\""))?;
             match token {
@@ -205,7 +236,6 @@
                  }
                  _ => return Err(self.error_message_current("Invalid expression")),
              }
-             self.simp_expr()?;
          }
          Ok(())
      }
@@ -260,7 +290,7 @@
      fn return_type(&mut self) -> ParseResult {
          let token = self.current_token().ok_or_else(|| self.error_message_current("Expected a return type"))?;
          match token {
-             C1Token::KwVoid | C1Token::ConstBoolean | C1Token::ConstInt | C1Token::ConstFloat | C1Token::ConstString => {
+             C1Token::KwVoid | C1Token::KwBoolean | C1Token::KwInt | C1Token::KwFloat => {
                  self.eat();
                  Ok(())
              }
