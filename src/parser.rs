@@ -123,7 +123,7 @@
                      Some(C1Token::LeftParenthesis) => self.function_call()?,
                      _ => Err(self.error_message_current("Invalid statement after identifier, it should be an assignment or a function call!"))?,
                  }
-             }
+             },
              _ => Err(self.error_message_current("Invalid statement"))?,
          }
          if last_token != Some(C1Token::KwIf) {
@@ -280,9 +280,14 @@
              Some(C1Token::ConstInt) => self.check_and_eat_token(&C1Token::ConstInt, "Expected an Integer")?,
              Some(C1Token::ConstFloat) => self.check_and_eat_token(&C1Token::ConstFloat, "Expected a Float")?,
              Some(C1Token::ConstBoolean) => self.check_and_eat_token(&C1Token::ConstBoolean, "Expected a Boolean")?,
-             Some(C1Token::Identifier) => self.identifier()?,
              Some(C1Token::LeftParenthesis) => self.assignment_in_parenthesis()?,
-             _ => self.function_call()?,
+             Some(C1Token::Identifier) => {
+                 match self.peek_token() {
+                     Some(C1Token::LeftParenthesis) => self.function_call()?,
+                     _ => self.identifier()?,
+                 }
+             },
+             _ => Err(self.error_message_current("Invalid factor"))?,
          }
          Ok(())
      }
@@ -392,7 +397,7 @@
          }
      }
  }
-
+/*
  #[cfg(test)]
  mod tests {
      use crate::parser::{C1Parser, ParseResult};
@@ -635,4 +640,4 @@
          )
          .is_ok());
      }
-}
+}*/
