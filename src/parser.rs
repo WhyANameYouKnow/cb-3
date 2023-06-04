@@ -96,7 +96,7 @@
                  self.statement_list()?;
                  self.check_and_eat_token(&C1Token::RightBrace, "\"}\" ist missing")?;
              }
-             else if self.current_matches(&C1Token::RightBrace){
+             else if self.current_matches(&C1Token::RightBrace) || !self.current_token().is_some(){
                  return Ok(());
              }
              else {
@@ -508,11 +508,11 @@
 
      #[test]
      fn valid_statement_list() {
-         assert!(call_method(C1Parser::statement_list, "int x = 4;").is_ok());
+         assert!(call_method(C1Parser::statement_list, "x = 4;").is_ok());
          assert!(call_method(
              C1Parser::statement_list,
-             "int x = 4;\n\
-         int y = 2.1;"
+             "x = 4;\n\
+         y = 2.1;"
          )
          .is_ok());
          assert!(call_method(
@@ -523,7 +523,7 @@
          }"
          )
          .is_ok());
-         assert!(call_method(C1Parser::statement_list, "{x = 4;}\nint y = 1;\nfoo;\n{}").is_ok());
+         assert!(call_method(C1Parser::statement_list, "{x = 4;}\ny = 1;\nfoo();\n{}").is_ok());
      }
 
      #[test]

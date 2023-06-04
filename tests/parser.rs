@@ -1,4 +1,4 @@
-use cb_3::C1Parser;
+use cb_3::parser::C1Parser;
 use std::fs;
 
 #[test]

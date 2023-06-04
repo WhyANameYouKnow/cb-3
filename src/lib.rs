@@ -1,5 +1,5 @@
 mod lexer;
-mod parser;
+pub mod parser;
 
 // Type definition for the Result that is being used by the parser. You may change it to anything
 // you want
